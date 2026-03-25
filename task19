@@ -1,0 +1,584 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+
+public class MyTreeSet<T> : IEnumerable<T>
+{
+    private enum NodeColor { Red, Black }
+
+    private class Node
+    {
+        public T Key;
+        public NodeColor Color;
+        public Node Left, Right, Parent;
+
+        public Node(T key)
+        {
+            Key = key;
+            Color = NodeColor.Red;
+        }
+    }
+
+    private readonly Node _nil;
+    private Node _root;
+    private IComparer<T> _comparer;
+    private int _count;
+
+    public int Count => _count;
+
+    public MyTreeSet()
+    {
+        _comparer = Comparer<T>.Default;
+        _nil = new Node(default);
+        _nil.Color = NodeColor.Black;
+        _nil.Left = _nil;
+        _nil.Right = _nil;
+        _nil.Parent = _nil;
+        _root = _nil;
+    }
+
+    public MyTreeSet(IComparer<T> comparer) : this()
+    {
+        _comparer = comparer;
+    }
+
+    public MyTreeSet(IEnumerable<T> collection) : this()
+    {
+        foreach (var item in collection)
+            Add(item);
+    }
+
+    public MyTreeSet(IEnumerable<T> collection, IComparer<T> comparer) : this(comparer)
+    {
+        foreach (var item in collection)
+            Add(item);
+    }
+
+    public MyTreeSet(T[] array) : this()
+    {
+        foreach (var item in array)
+            Add(item);
+    }
+
+    private void RotateLeft(Node x)
+    {
+        Node y = x.Right;
+        x.Right = y.Left;
+        if (y.Left != _nil)
+            y.Left.Parent = x;
+        y.Parent = x.Parent;
+        if (x.Parent == _nil)
+            _root = y;
+        else if (x == x.Parent.Left)
+            x.Parent.Left = y;
+        else
+            x.Parent.Right = y;
+        y.Left = x;
+        x.Parent = y;
+    }
+
+    private void RotateRight(Node x)
+    {
+        Node y = x.Left;
+        x.Left = y.Right;
+        if (y.Right != _nil)
+            y.Right.Parent = x;
+        y.Parent = x.Parent;
+        if (x.Parent == _nil)
+            _root = y;
+        else if (x == x.Parent.Right)
+            x.Parent.Right = y;
+        else
+            x.Parent.Left = y;
+        y.Right = x;
+        x.Parent = y;
+    }
+
+    public bool Add(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        Node z = new Node(item);
+        z.Left = _nil;
+        z.Right = _nil;
+        Node y = _nil;
+        Node x = _root;
+        while (x != _nil)
+        {
+            y = x;
+            int cmp = _comparer.Compare(item, x.Key);
+            if (cmp == 0)
+                return false;
+            else if (cmp < 0)
+                x = x.Left;
+            else
+                x = x.Right;
+        }
+        z.Parent = y;
+        if (y == _nil)
+            _root = z;
+        else if (_comparer.Compare(item, y.Key) < 0)
+            y.Left = z;
+        else
+            y.Right = z;
+        _count++;
+        InsertFixup(z);
+        return true;
+    }
+    private void InsertFixup(Node z)
+    {
+        while (z.Parent.Color == NodeColor.Red)
+        {
+            if (z.Parent == z.Parent.Parent.Left) //если родитель левый ребенок деда 
+            {
+                Node y = z.Parent.Parent.Right;
+                if (y.Color == NodeColor.Red)
+                {
+                    z.Parent.Color = NodeColor.Black; //Перекрашиваем родителя 
+                    y.Color = NodeColor.Black; // его брата 
+                    z.Parent.Parent.Color = NodeColor.Red; // дед теперь красный 
+                    z = z.Parent.Parent; // поднимаемся к деду 
+                }
+                else // дядя чёрни => повороты из за черной высоты
+                {
+                    if (z == z.Parent.Right)
+                    {
+                        z = z.Parent;
+                        RotateLeft(z);
+                    } // после ротации z=Parent z.parent=z
+                    z.Parent.Color = NodeColor.Black; //z
+                    z.Parent.Parent.Color = NodeColor.Red; //дед красный
+                    RotateRight(z.Parent.Parent); //правый поворот вокруг деда 
+                }
+            }
+            else
+            {
+                Node y = z.Parent.Parent.Left;
+                if (y.Color == NodeColor.Red)
+                {
+                    z.Parent.Color = NodeColor.Black;
+                    y.Color = NodeColor.Black;
+                    z.Parent.Parent.Color = NodeColor.Red;
+                    z = z.Parent.Parent; 
+                }
+                else
+                {
+                    if (z == z.Parent.Left)
+                    {
+                        z = z.Parent;
+                        RotateRight(z);
+                    }
+                    z.Parent.Color = NodeColor.Black;
+                    z.Parent.Parent.Color = NodeColor.Red;
+                    RotateLeft(z.Parent.Parent);
+                }
+            }
+        }
+        _root.Color = NodeColor.Black;
+    }
+    private Node FindNode(T item)
+    {
+        Node x = _root;
+        while (x != _nil)
+        {
+            int cmp = _comparer.Compare(item, x.Key);
+            if (cmp == 0)
+                return x;
+            else if (cmp < 0)
+                x = x.Left;
+            else
+                x = x.Right;
+        }
+        return _nil;
+    }
+
+    public bool Contains(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        return FindNode(item) != _nil;
+    }
+
+    public bool Remove(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        Node z = FindNode(item);
+        if (z == _nil)
+            return false;
+        Delete(z);
+        _count--;
+        return true;
+    }
+    private void Delete(Node z)
+    {
+        Node y = z;
+        Node x;
+        NodeColor originalColor = y.Color; //цвет удаляемого узла
+        if (z.Left == _nil)
+        {
+            x = z.Right;
+            Transplant(z, z.Right);
+        }
+        else if (z.Right == _nil)
+        {
+            x = z.Left;
+            Transplant(z, z.Left);
+        }
+        else
+        {
+            y = TreeMinimum(z.Right);
+            originalColor = y.Color;
+            x = y.Right;
+            if (y.Parent == z)
+                x.Parent = y;
+            else
+            {
+                Transplant(y, y.Right);
+                y.Right = z.Right;
+                y.Right.Parent = y;
+            }
+            Transplant(z, y);
+            y.Left = z.Left;
+            y.Left.Parent = y;
+            y.Color = z.Color;
+        }
+        if (originalColor == NodeColor.Black)
+            DeleteFixup(x);
+    }
+
+    private void Transplant(Node u, Node v) //замена поддеревьев
+    {
+        if (u.Parent == _nil)
+            _root = v;
+        else if (u == u.Parent.Left)
+            u.Parent.Left = v;
+        else
+            u.Parent.Right = v;
+        v.Parent = u.Parent;
+    }
+    private void DeleteFixup(Node x)
+    {
+        while (x != _root && x.Color == NodeColor.Black)
+        {
+            if (x == x.Parent.Left) //x левый ребенок 
+            {
+                Node w = x.Parent.Right; //брат икса 
+                if (w.Color == NodeColor.Red) //брат 
+                {
+                    w.Color = NodeColor.Black; //перекрашиваем 
+                    x.Parent.Color = NodeColor.Red;//перекрашиваем родителя 
+                    RotateLeft(x.Parent);
+                    w = x.Parent.Right;
+                }
+                if (w.Left.Color == NodeColor.Black && w.Right.Color == NodeColor.Black)
+                {
+                    w.Color = NodeColor.Red;
+                    x = x.Parent;
+                }
+                else
+                { 
+                    if (w.Right.Color == NodeColor.Black)
+                    {
+                        w.Left.Color = NodeColor.Black;
+                        w.Color = NodeColor.Red;
+                        RotateRight(w);
+                        w = x.Parent.Right;
+                    }
+                    w.Color = x.Parent.Color;
+                    x.Parent.Color = NodeColor.Black;
+                    w.Right.Color = NodeColor.Black;
+                    RotateLeft(x.Parent);
+                    x = _root;
+                }
+            }
+            else
+            {
+                Node w = x.Parent.Left;
+                if (w.Color == NodeColor.Red)
+                {
+                    w.Color = NodeColor.Black;
+                    x.Parent.Color = NodeColor.Red;
+                    RotateRight(x.Parent);
+                    w = x.Parent.Left;
+                }
+                if (w.Right.Color == NodeColor.Black && w.Left.Color == NodeColor.Black)
+                {
+                    w.Color = NodeColor.Red;
+                    x = x.Parent;
+                }
+                else
+                {
+                    if (w.Left.Color == NodeColor.Black)
+                    {
+                        w.Right.Color = NodeColor.Black;
+                        w.Color = NodeColor.Red;
+                        RotateLeft(w);
+                        w = x.Parent.Left;
+                    }
+                    w.Color = x.Parent.Color;
+                    x.Parent.Color = NodeColor.Black;
+                    w.Left.Color = NodeColor.Black;
+                    RotateRight(x.Parent);
+                    x = _root;
+                }
+            }
+        }
+        x.Color = NodeColor.Black;
+    }
+    private Node TreeMinimum(Node node)
+    {
+        while (node.Left != _nil)
+            node = node.Left;
+        return node;
+    }
+
+    private Node TreeMaximum(Node node)
+    {
+        while (node.Right != _nil)
+            node = node.Right;
+        return node;
+    }
+    public T First()
+    {
+        if (_root == _nil)
+            throw new InvalidOperationException("Set is empty");
+        return TreeMinimum(_root).Key;
+    }
+
+    public T Last()
+    {
+        if (_root == _nil)
+            throw new InvalidOperationException("Set is empty");
+        return TreeMaximum(_root).Key;
+    }
+
+    public T PollFirst()
+    {
+        if (_root == _nil)
+            return default;
+        Node min = TreeMinimum(_root);
+        T key = min.Key;
+        Delete(min);
+        _count--;
+        return key;
+    }
+
+    public T PollLast()
+    {
+        if (_root == _nil)
+            return default;
+        Node max = TreeMaximum(_root);
+        T key = max.Key;
+        Delete(max);
+        _count--;
+        return key;
+    }
+
+    public T Floor(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        Node result = _nil;
+        Node x = _root;
+        while (x != _nil)
+        {
+            int cmp = _comparer.Compare(item, x.Key);
+            if (cmp == 0)
+                return x.Key;
+            else if (cmp > 0)
+            {
+                result = x;
+                x = x.Right;
+            }
+            else
+                x = x.Left;
+        }
+        if (result == _nil)
+            throw new InvalidOperationException("No floor element exists");
+        return result.Key;
+    }
+
+    public T Ceiling(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        Node result = _nil;
+        Node x = _root;
+        while (x != _nil)
+        {
+            int cmp = _comparer.Compare(item, x.Key);
+            if (cmp == 0)
+                return x.Key;
+            else if (cmp < 0)
+            {
+                result = x;
+                x = x.Left;
+            }
+            else
+                x = x.Right;
+        }
+        if (result == _nil)
+            throw new InvalidOperationException("No ceiling element exists");
+        return result.Key;
+    }
+
+    public T Lower(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        Node result = _nil;
+        Node x = _root;
+        while (x != _nil)
+        {
+            int cmp = _comparer.Compare(item, x.Key);
+            if (cmp > 0)
+            {
+                result = x;
+                x = x.Right;
+            }
+            else
+                x = x.Left;
+        }
+        if (result == _nil)
+            throw new InvalidOperationException("No lower element exists");
+        return result.Key;
+    }
+
+    public T Higher(T item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+        Node result = _nil;
+        Node x = _root;
+        while (x != _nil)
+        {
+            int cmp = _comparer.Compare(item, x.Key);
+            if (cmp < 0)
+            {
+                result = x;
+                x = x.Left;
+            }
+            else
+                x = x.Right;
+        }
+        if (result == _nil)
+            throw new InvalidOperationException("No higher element exists");
+        return result.Key;
+    }
+
+    public MyTreeSet<T> SubSet(T fromElement, bool fromInclusive, T toElement, bool toInclusive)
+    {
+        if (fromElement == null || toElement == null)
+            throw new ArgumentNullException();
+        var result = new MyTreeSet<T>(_comparer);
+        foreach (var item in this)
+        {
+            int cmpFrom = _comparer.Compare(item, fromElement);
+            int cmpTo = _comparer.Compare(item, toElement);
+            bool ok = (fromInclusive ? cmpFrom >= 0 : cmpFrom > 0)
+                   && (toInclusive   ? cmpTo   <= 0 : cmpTo   < 0);
+            if (ok)
+                result.Add(item);
+        }
+        return result;
+    }
+
+    public MyTreeSet<T> SubSet(T fromElement, T toElement)
+    {
+        return SubSet(fromElement, true, toElement, false);
+    }
+
+    public MyTreeSet<T> HeadSet(T toElement, bool inclusive)
+    {
+        if (toElement == null)
+            throw new ArgumentNullException(nameof(toElement));
+        var result = new MyTreeSet<T>(_comparer);
+        foreach (var item in this)
+        {
+            int cmp = _comparer.Compare(item, toElement);
+            if (inclusive ? cmp <= 0 : cmp < 0)
+                result.Add(item);
+        }
+        return result;
+    }
+
+    public MyTreeSet<T> HeadSet(T toElement) => HeadSet(toElement, false);
+
+    public MyTreeSet<T> TailSet(T fromElement, bool inclusive)
+    {
+        if (fromElement == null)
+            throw new ArgumentNullException(nameof(fromElement));
+        var result = new MyTreeSet<T>(_comparer);
+        foreach (var item in this)
+        {
+            int cmp = _comparer.Compare(item, fromElement);
+            if (inclusive ? cmp >= 0 : cmp > 0)
+                result.Add(item);
+        }
+        return result;
+    }
+
+    public MyTreeSet<T> TailSet(T fromElement) => TailSet(fromElement, true);
+
+    public MyTreeSet<T> DescendingSet()
+    {
+        var reverseComparer = Comparer<T>.Create((a, b) => _comparer.Compare(b, a));
+        var result = new MyTreeSet<T>(reverseComparer);
+        foreach (var item in this)
+            result.Add(item);
+        return result;
+    }
+
+    public IEnumerator<T> DescendingIterator()
+    {
+        return InOrderDescending(_root).GetEnumerator();
+    }
+
+    private IEnumerable<T> InOrderDescending(Node node)
+    {
+        if (node == _nil)
+            yield break;
+        foreach (var item in InOrderDescending(node.Right))
+            yield return item;
+        yield return node.Key;
+        foreach (var item in InOrderDescending(node.Left))
+            yield return item;
+    }
+
+    public IEnumerator<T> GetEnumerator() => InOrder(_root).GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    private IEnumerable<T> InOrder(Node node)
+    {
+        if (node == _nil)
+            yield break;
+        foreach (var item in InOrder(node.Left))
+            yield return item;
+        yield return node.Key;
+        foreach (var item in InOrder(node.Right))
+            yield return item;
+    }
+
+    public void Clear()
+    {
+        _root = _nil;
+        _count = 0;
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder("[");
+        bool first = true;
+        foreach (var item in this)
+        {
+            if (!first)
+                sb.Append(", ");
+            sb.Append(item);
+            first = false;
+        }
+        sb.Append("]");
+        return sb.ToString();
+    }
+}
