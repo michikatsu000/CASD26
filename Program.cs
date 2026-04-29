@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using Task_25;
-namespace Task_26
+using System.Text.RegularExpressions;
+
+namespace task_27
 {
-     class Program1
+    internal class Program
     {
         public class MyTreeMap<K, V>
         {
@@ -326,36 +327,26 @@ namespace Task_26
                 var maxNode = Max(root);
                 return new KeyValuePair<K, V>(maxNode.key, maxNode.value);
             }
+
         }
         public class MyHashSet<T>
         {
+
             private MyTreeMap<T, object> map;
             private static readonly object dummy = new object();
-            private IComparer<T> comparer;
             //1
             public MyHashSet() : this(16, 0.75f)
             {
+
             }
             //2
             public MyHashSet(T[] a) : this()
             {
                 if (a != null) AddAll(a);
             }
-          
-            
             //4
             public MyHashSet(int initialCapacity) : this(initialCapacity, 0.75f)
             {
-
-
-            }
-            public MyHashSet(IComparer<T> comp) {
-                if (comp != null) {
-                    this.comparer = comp;
-                map=new MyTreeMap<T, object>(this.comparer);
-                }
-            
-            
             }
 
             //3 
@@ -365,7 +356,7 @@ namespace Task_26
                     throw new Exception("Ошибка");
                 if (loadFactor <= 0 || float.IsNaN(loadFactor))
                     throw new Exception("Ошибка");
-              map=new MyTreeMap<T, object>();
+                map = new MyTreeMap<T, object>();
             }
             //5
             public bool Add(T e)
@@ -494,7 +485,6 @@ namespace Task_26
             {
                 List<T> keys = KeySet();
 
-
                 if (a == null)
                 {
                     a = new T[keys.Count];
@@ -532,65 +522,35 @@ namespace Task_26
         }
         static void Main(string[] args)
         {
-            string inputFile = "input.txt";
-            string outputFile = "output.txt";
-            if (!File.Exists(inputFile))
-            {
-                CreateExampleFile(inputFile);
+            string filePath = "C:\\Users\\Антон\\Desktop\\input.txt";
+            if (!File.Exists(filePath)) {
+                Console.WriteLine("Файл не найден");
+                return;
             }
-                Console.WriteLine($"Создан файл-пример: {inputFile}");
-                string[] lines=File.ReadAllLines(inputFile);
-        MyHashSet<string> stringSet= new MyHashSet<string>(new StringByWordLengthComparer());
-            foreach (string line in lines)
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                stringSet.Add(line);
-            }
-            object[] elements=stringSet.ToArray();
-            using (StreamWriter writer = new StreamWriter(outputFile))
-            {
-                foreach (object elem in elements)
+            MyHashSet<string>uniqueWords= new MyHashSet<string>();
+
+            using (StreamReader reader = new StreamReader(filePath)) {
+                string line;
+                int lineNumber = 1;
+                while ((line = reader.ReadLine()) != null)
                 {
-                    string linee = elem.ToString();
-                    Console.WriteLine(linee);
-                    writer.WriteLine(linee);
+                    var matches = Regex.Matches(line, @"[a-zA-Z]+");
+                    foreach (Match match in matches)
+                    {
+                        string word = match.Value;
+                        string normalizedWord = word.ToLower();
+                        uniqueWords.Add(normalizedWord);
+                    }
+                    lineNumber++;
                 }
             }
-            Console.WriteLine($"\nРезультат записан в файл: {outputFile}");
-            }
-        static void CreateExampleFile(string filename)
-        {
-            string[] examplelines = {
-            "hello world",
-                "a b c",
-                "hello world",  // дубликат
-                "short long long long",
-                "a bb ccc",
-                "x y z",
-                "word",
-                "a bb c",       // сравнение по второму слову
-                "very_long_word",
-                "short short long"
-            };
-            File.WriteAllLines(filename, examplelines);
-        }
-        public class StringByWordLengthComparer : IComparer<string> {
-            public int Compare(string x, string y)
+            Console.WriteLine($"\nНайдено уникальных слов: {uniqueWords.Size()}");
+            string[] wordsArray = uniqueWords.ToArray(new string[0]);
+            Array.Sort(wordsArray);
+            for (int i = 0; i < wordsArray.Length; i++)
             {
-                if (x == null && y == null) return 0; //x=y
-                if (x == null) return -1; //x<y
-                if (y == null) return 1; //x>y
-                var lensX=x.Split().Select(w=>w.Length).OrderBy(w=>w).ToList();
-                var lensY =y.Split().Select(w => w.Length).OrderBy(w => w).ToList();
-                for (int i = 0; i < Math.Min(lensX.Count, lensY.Count); i++) {
-                    if (lensX[i] != lensY[i])
-                        return lensX[i].CompareTo(lensY[i]);
-                }
-                if(lensX.Count != lensY.Count)
-                return lensX.Count.CompareTo(lensY.Count);
-                return string.Compare(x, y);
+                Console.WriteLine("Уникальное слово: " + wordsArray[i]);
             }
-           }
         }
     }
-
+}
