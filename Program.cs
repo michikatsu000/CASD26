@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-
-namespace Task_25
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+using Task_25;
+namespace Task_26
 {
-    internal class Program
+     class Program1
     {
         public class MyTreeMap<K, V>
         {
@@ -323,25 +327,37 @@ namespace Task_25
                 return new KeyValuePair<K, V>(maxNode.key, maxNode.value);
             }
         }
-            public class MyHashSet<T>
-           {
-
+        public class MyHashSet<T>
+        {
             private MyTreeMap<T, object> map;
             private static readonly object dummy = new object();
+            private IComparer<T> comparer;
             //1
             public MyHashSet() : this(16, 0.75f)
             {
-
             }
             //2
             public MyHashSet(T[] a) : this()
             {
                 if (a != null) AddAll(a);
             }
+          
+            
             //4
             public MyHashSet(int initialCapacity) : this(initialCapacity, 0.75f)
             {
+
+
             }
+            public MyHashSet(IComparer<T> comp) {
+                if (comp != null) {
+                    this.comparer = comp;
+                map=new MyTreeMap<T, object>(this.comparer);
+                }
+            
+            
+            }
+
             //3 
             public MyHashSet(int initialCapacity, float loadFactor)
             {
@@ -349,7 +365,7 @@ namespace Task_25
                     throw new Exception("Ошибка");
                 if (loadFactor <= 0 || float.IsNaN(loadFactor))
                     throw new Exception("Ошибка");
-                map = new MyTreeMap<T, object>();
+              map=new MyTreeMap<T, object>();
             }
             //5
             public bool Add(T e)
@@ -478,6 +494,7 @@ namespace Task_25
             {
                 List<T> keys = KeySet();
 
+
                 if (a == null)
                 {
                     a = new T[keys.Count];
@@ -508,42 +525,72 @@ namespace Task_25
                 List<T> keys = KeySet();
                 return "[" + string.Join(", ", keys) + "]";
             }
-            public void Clear() {
+            public void Clear()
+            {
                 map.Clear();
             }
         }
-
-
         static void Main(string[] args)
         {
-            MyHashSet<int> set1 = new MyHashSet<int>();
-            set1.Add(1);
-            set1.Add(2);
-            set1.Add(3);
-            Console.WriteLine($"set1: {set1}");
-
-            int[] arr = { 3, 4, 5, 6 };
-            MyHashSet<int> set2 = new MyHashSet<int>(arr);
-            Console.WriteLine($"set2: {set2}");
-
-            int[] newElements = { 7, 8, 9 };
-            set2.AddAll(newElements);
-            Console.WriteLine($"set2 после AddAll: {set2}");
-            int[] checkElements = { 3, 5, 7 };
-
-            Console.WriteLine(set2.ContainsAll(checkElements));
-
-            set2.Remove(5);
-            Console.WriteLine(set2);
-
-            int[] toRetain = { 4, 8 };
-            set2.RetainAll(toRetain);
-            Console.WriteLine(set2);
-
-            MyHashSet<string> set3 = new MyHashSet<string>();
-            set3.Add("apple");
-            set3.Add("banana");
-            set3.Add("cherry");
+            string inputFile = "input.txt";
+            string outputFile = "output.txt";
+            if (!File.Exists(inputFile))
+            {
+                CreateExampleFile(inputFile);
+            }
+                Console.WriteLine($"Создан файл-пример: {inputFile}");
+                string[] lines=File.ReadAllLines(inputFile);
+        MyHashSet<string> stringSet= new MyHashSet<string>(new StringByWordLengthComparer());
+            foreach (string line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                stringSet.Add(line);
+            }
+            object[] elements=stringSet.ToArray();
+            using (StreamWriter writer = new StreamWriter(outputFile))
+            {
+                foreach (object elem in elements)
+                {
+                    string linee = elem.ToString();
+                    Console.WriteLine(linee);
+                    writer.WriteLine(linee);
+                }
+            }
+            Console.WriteLine($"\nРезультат записан в файл: {outputFile}");
+            }
+        static void CreateExampleFile(string filename)
+        {
+            string[] examplelines = {
+            "hello world",
+                "a b c",
+                "hello world",  // дубликат
+                "short long long long",
+                "a bb ccc",
+                "x y z",
+                "word",
+                "a bb c",       // сравнение по второму слову
+                "very_long_word",
+                "short short long"
+            };
+            File.WriteAllLines(filename, examplelines);
+        }
+        public class StringByWordLengthComparer : IComparer<string> {
+            public int Compare(string x, string y)
+            {
+                if (x == null && y == null) return 0; //x=y
+                if (x == null) return -1; //x<y
+                if (y == null) return 1; //x>y
+                var lensX=x.Split().Select(w=>w.Length).OrderBy(w=>w).ToList();
+                var lensY =y.Split().Select(w => w.Length).OrderBy(w => w).ToList();
+                for (int i = 0; i < Math.Min(lensX.Count, lensY.Count); i++) {
+                    if (lensX[i] != lensY[i])
+                        return lensX[i].CompareTo(lensY[i]);
+                }
+                if(lensX.Count != lensY.Count)
+                return lensX.Count.CompareTo(lensY.Count);
+                return string.Compare(x, y);
+            }
+           }
         }
     }
-}
+
